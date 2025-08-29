@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Game List</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 15px;
+        cursor: pointer;
+      }
+      .card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+      .title {
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-bottom: 10px;
+      }
+      .desc {
+        font-size: 0.9em;
+        color: #555;
+      }
+      #detail {
+        margin-top: 30px;
+        padding: 20px;
+        border: 1px solid #aaa;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>Game Catalog</h1>
+      
+      <label for="filterInput">Lọc theo tên/Mô tả:</label>
+      <input
+        type="text"
+        id="filterInput"
+        placeholder="Type to filter..."
+        oninput="filterGames()"
+      />
+      Lọc theo thể loại:
+      <select id="genreSelect" onchange="filterGenre()">
+        <option value="">Tất cả</option>
+        <option value="Action">Hành động</option>
+        <option value="Adventure">Phiêu lưu</option>
+        <option value="RPG">RPG</option>
+        <option value="Strategy">Chiến thuật</option>
+        <option value="Simulation">Mô phỏng</option>
+        <option value="Sports">Thể thao</option>
+        <option value="Puzzle">Giải đố</option>
+        <option value="Children's">Giành cho trẻ em</option>
+        <option value="Family">Gia đình</option>
+        <option value="Educational">Giáo dục</option>
+      </select>
+    </div>
+
+    <div class="grid" id="gameList"></div>
+
+    <div id="detail" style="display: none"></div>
+
+    <script>
+      fetch("ALL_Game-VN.json")
+        .then((res) => res.json())
+        .then((data) => {
+          const container = document.getElementById("gameList");
+          data.forEach((game, index) => {
+            console.log(game);
+            const p = game;
+
+            const shortDesc =
+              p.descriptions?.find((d) => d.type === "SHORT")?.value ?? "";
+            const card = document.createElement("div");
+            let thumbNail =
+              p.media?.find(
+                (m) => m.role === "PORTRAIT_BANNER" && m.type === "IMAGE"
+              )?.url ??
+              p.media?.find(
+                (m) =>
+                  ("BACKGROUND_LAYER_ART" || m.role == null) &&
+                  m.type === "IMAGE"
+              )?.url ??
+              "";
+
+            card.className = "card";
+            card.innerHTML = `
+            <input type="hidden" value="${p.id}">
+            <div class="title">${p.invariantName ?? "Game"}</div>
+            <div class="desc">${shortDesc}</div>
+            <div><img src="${thumbNail}" alt="Thumbnail" style="max-width:100%; border-radius:4px; margin-top:10px;"></div>
+          `;
+            card.onclick = () => showDetail(p);
+            container.appendChild(card);
+          });
+        });
+
+      function showDetail(p) {
+        const detail = document.getElementById("detail");
+        detail.style.display = "block";
+        detail.innerHTML = `
+        <h2>Detail</h2>
+        <h3>${p.invariantName ?? "Game"}</h3>
+        <p><b>Publisher:</b> ${p.publisherName ?? ""}</p>
+        <p><b>Release Date: </b> ${p.releaseDate?.value ?? ""}</p>
+        <p><b>Genres:</b> ${
+          p.combinedLocalizedGenres?.map((g) => g.value).join(", ") ?? ""
+        }</p>
+        <p><b>Compatibility:</b> ${
+          p.compatibilityNotices
+            ?.map((c) => `${c.type}: ${c.value}`)
+            .join(", ") ?? ""
+        }</p>
+        <p><b>Description:</b> ${
+          p.descriptions?.find((d) => d.type === "LONG")?.value ?? ""
+        }</p>
+        <p><b>Media:</b></p>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          ${
+            p.media
+              ?.map((m) => {
+                if (m.type === "IMAGE") {
+                  return `<img src="${m.url}" alt="${m.role}" style="max-width:200px; border-radius:4px;">`;
+                } else if (m.type === "VIDEO") {
+                  return `<video controls style="max-width:200px; border-radius:4px;">
+                        <source src="${m.url}" type="video/mp4">
+                      </video>`;
+                }
+                return "";
+              })
+              .join("") ?? ""
+          }
+      `;
+        window.scrollTo({ top: detail.offsetTop, behavior: "smooth" });
+      }
+
+      filterGames = () => {
+        const filterText = document
+          .getElementById("filterInput")
+          .value.toLowerCase();
+        const cards = document.querySelectorAll(".card");
+        cards.forEach((card) => {
+          const title = card.querySelector(".title").innerText.toLowerCase();
+          const desc = card.querySelector(".desc").innerText.toLowerCase();
+          if (title.includes(filterText) || desc.includes(filterText)) {
+            card.style.display = "block";
+          } else {
+            card.style.display = "none";
+          }
+        });
+      };
+
+      filterGenre = () => {
+        const selectedGenre = document.getElementById("genreSelect").value;
+        const cards = document.querySelectorAll(".card");
+        cards.forEach((card) => {
+          const gameId = card.querySelector("input[type='hidden']").value;
+          fetch("ALL_Game-VN.json")
+            .then((res) => res.json())
+            .then((data) => {
+              const game = data.find((g) => g.id === gameId);
+              const genres = game?.combinedLocalizedGenres?.map((g) => g.value) || [];
+              if (
+                selectedGenre === "" ||
+                genres.includes(selectedGenre)
+              ) {
+                card.style.display = "block";
+              } else {
+                card.style.display = "none";
+              }
+            });
+        });
+      };
+    </script>
+  </body>
+</html>
